@@ -20,20 +20,8 @@
 * MurmurHash3 by Karan Lyons (https://github.com/karanlyons/murmurHash3.js)
 */
 
-/* global define */
-(function (name, context, definition) {
+window.fipr = (function() {
   'use strict'
-  if (typeof window !== 'undefined' && typeof define === 'function' && define.amd) { define(definition) } else if (typeof module !== 'undefined' && module.exports) { module.exports = definition() } else if (context.exports) { context.exports = definition() } else { context[name] = definition() }
-})('Fingerprint2', this, function () {
-  'use strict'
-
-  // detect if object is array
-  // only implement if no native implementation is available
-  if (typeof Array.isArray === 'undefined') {
-    Array.isArray = function (obj) {
-      return Object.prototype.toString.call(obj) === '[object Array]'
-    }
-  };
 
   /// MurmurHash3 related functions
 
@@ -243,19 +231,12 @@
   }
 
   var defaultOptions = {
-    preprocessor: null,
     audio: {
       timeout: 1000,
       // On iOS 11, audio context can only be used in response to user interaction.
       // We require users to explicitly enable audio fingerprinting on iOS 11.
       // See https://stackoverflow.com/questions/46363048/onaudioprocess-not-called-on-ios11#46534088
       excludeIOS11: true
-    },
-    fonts: {
-      swfContainerId: 'fingerprintjs2',
-      swfPath: 'flash/compiled/FontList.swf',
-      userDefinedFonts: [],
-      extendedJsFonts: false
     },
     screen: {
       // To ensure consistent fingerprints when users rotate their mobile devices
@@ -265,16 +246,9 @@
       sortPluginsFor: [/palemoon/i],
       excludeIE: false
     },
-    extraComponents: [],
     excludes: {
-      // Unreliable on Windows, see https://github.com/Valve/fingerprintjs2/issues/375
-      'enumerateDevices': true,
       // devicePixelRatio depends on browser zoom, and it's impossible to detect browser zoom
-      'pixelRatio': true,
-      // DNT depends on incognito mode for some browsers (Chrome) and it's impossible to detect incognito mode
-      'doNotTrack': true,
-      // uses js fonts already
-      'fontsFlash': true
+      'pixelRatio': false,
     },
     NOT_AVAILABLE: 'not available',
     ERROR: 'error',
@@ -324,23 +298,6 @@
     return target
   }
 
-  // https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/enumerateDevices
-  var enumerateDevicesKey = function (done, options) {
-    if (!isEnumerateDevicesSupported()) {
-      return done(options.NOT_AVAILABLE)
-    }
-    navigator.mediaDevices.enumerateDevices().then(function (devices) {
-      done(devices.map(function (device) {
-        return 'id=' + device.deviceId + ';gid=' + device.groupId + ';' + device.kind + ';' + device.label
-      }))
-    })['catch'](function (error) {
-      done(error)
-    })
-  }
-
-  var isEnumerateDevicesSupported = function () {
-    return (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices)
-  }
   // Inspired by and based on https://github.com/cozylife/audio-fingerprint
   var audioKey = function (done, options) {
     var audioOptions = options.audio
@@ -478,9 +435,6 @@
   var platformKey = function (done, options) {
     done(getNavigatorPlatform(options))
   }
-  var doNotTrackKey = function (done, options) {
-    done(getDoNotTrack(options))
-  }
   var canvasKey = function (done, options) {
     if (isCanvasSupported()) {
       done(getCanvasFp(options))
@@ -517,22 +471,6 @@
   var hasLiedBrowserKey = function (done) {
     done(getHasLiedBrowser())
   }
-  // flash fonts (will increase fingerprinting time 20X to ~ 130-150ms)
-  var flashFontsKey = function (done, options) {
-    // we do flash if swfobject is loaded
-    if (!hasSwfObjectLoaded()) {
-      return done('swf object not loaded')
-    }
-    if (!hasMinFlashInstalled()) {
-      return done('flash not installed')
-    }
-    if (!options.fonts.swfPath) {
-      return done('missing options.fonts.swfPath')
-    }
-    loadSwfAndDetectFonts(function (fonts) {
-      done(fonts)
-    }, options)
-  }
   // kudos to http://www.lalit.org/lab/javascript-css-font-detect/
   var jsFontsKey = function (done, options) {
     // a font will be compared against all the three default fonts.
@@ -553,44 +491,6 @@
       'Tahoma', 'Times', 'Times New Roman', 'Times New Roman PS', 'Trebuchet MS',
       'Verdana', 'Wingdings', 'Wingdings 2', 'Wingdings 3'
     ]
-
-    if (options.fonts.extendedJsFonts) {
-      var extendedFontList = [
-        'Abadi MT Condensed Light', 'Academy Engraved LET', 'ADOBE CASLON PRO', 'Adobe Garamond', 'ADOBE GARAMOND PRO', 'Agency FB', 'Aharoni', 'Albertus Extra Bold', 'Albertus Medium', 'Algerian', 'Amazone BT', 'American Typewriter',
-        'American Typewriter Condensed', 'AmerType Md BT', 'Andalus', 'Angsana New', 'AngsanaUPC', 'Antique Olive', 'Aparajita', 'Apple Chancery', 'Apple Color Emoji', 'Apple SD Gothic Neo', 'Arabic Typesetting', 'ARCHER',
-        'ARNO PRO', 'Arrus BT', 'Aurora Cn BT', 'AvantGarde Bk BT', 'AvantGarde Md BT', 'AVENIR', 'Ayuthaya', 'Bandy', 'Bangla Sangam MN', 'Bank Gothic', 'BankGothic Md BT', 'Baskerville',
-        'Baskerville Old Face', 'Batang', 'BatangChe', 'Bauer Bodoni', 'Bauhaus 93', 'Bazooka', 'Bell MT', 'Bembo', 'Benguiat Bk BT', 'Berlin Sans FB', 'Berlin Sans FB Demi', 'Bernard MT Condensed', 'BernhardFashion BT', 'BernhardMod BT', 'Big Caslon', 'BinnerD',
-        'Blackadder ITC', 'BlairMdITC TT', 'Bodoni 72', 'Bodoni 72 Oldstyle', 'Bodoni 72 Smallcaps', 'Bodoni MT', 'Bodoni MT Black', 'Bodoni MT Condensed', 'Bodoni MT Poster Compressed',
-        'Bookshelf Symbol 7', 'Boulder', 'Bradley Hand', 'Bradley Hand ITC', 'Bremen Bd BT', 'Britannic Bold', 'Broadway', 'Browallia New', 'BrowalliaUPC', 'Brush Script MT', 'Californian FB', 'Calisto MT', 'Calligrapher', 'Candara',
-        'CaslonOpnface BT', 'Castellar', 'Centaur', 'Cezanne', 'CG Omega', 'CG Times', 'Chalkboard', 'Chalkboard SE', 'Chalkduster', 'Charlesworth', 'Charter Bd BT', 'Charter BT', 'Chaucer',
-        'ChelthmITC Bk BT', 'Chiller', 'Clarendon', 'Clarendon Condensed', 'CloisterBlack BT', 'Cochin', 'Colonna MT', 'Constantia', 'Cooper Black', 'Copperplate', 'Copperplate Gothic', 'Copperplate Gothic Bold',
-        'Copperplate Gothic Light', 'CopperplGoth Bd BT', 'Corbel', 'Cordia New', 'CordiaUPC', 'Cornerstone', 'Coronet', 'Cuckoo', 'Curlz MT', 'DaunPenh', 'Dauphin', 'David', 'DB LCD Temp', 'DELICIOUS', 'Denmark',
-        'DFKai-SB', 'Didot', 'DilleniaUPC', 'DIN', 'DokChampa', 'Dotum', 'DotumChe', 'Ebrima', 'Edwardian Script ITC', 'Elephant', 'English 111 Vivace BT', 'Engravers MT', 'EngraversGothic BT', 'Eras Bold ITC', 'Eras Demi ITC', 'Eras Light ITC', 'Eras Medium ITC',
-        'EucrosiaUPC', 'Euphemia', 'Euphemia UCAS', 'EUROSTILE', 'Exotc350 Bd BT', 'FangSong', 'Felix Titling', 'Fixedsys', 'FONTIN', 'Footlight MT Light', 'Forte',
-        'FrankRuehl', 'Fransiscan', 'Freefrm721 Blk BT', 'FreesiaUPC', 'Freestyle Script', 'French Script MT', 'FrnkGothITC Bk BT', 'Fruitger', 'FRUTIGER',
-        'Futura', 'Futura Bk BT', 'Futura Lt BT', 'Futura Md BT', 'Futura ZBlk BT', 'FuturaBlack BT', 'Gabriola', 'Galliard BT', 'Gautami', 'Geeza Pro', 'Geometr231 BT', 'Geometr231 Hv BT', 'Geometr231 Lt BT', 'GeoSlab 703 Lt BT',
-        'GeoSlab 703 XBd BT', 'Gigi', 'Gill Sans', 'Gill Sans MT', 'Gill Sans MT Condensed', 'Gill Sans MT Ext Condensed Bold', 'Gill Sans Ultra Bold', 'Gill Sans Ultra Bold Condensed', 'Gisha', 'Gloucester MT Extra Condensed', 'GOTHAM', 'GOTHAM BOLD',
-        'Goudy Old Style', 'Goudy Stout', 'GoudyHandtooled BT', 'GoudyOLSt BT', 'Gujarati Sangam MN', 'Gulim', 'GulimChe', 'Gungsuh', 'GungsuhChe', 'Gurmukhi MN', 'Haettenschweiler', 'Harlow Solid Italic', 'Harrington', 'Heather', 'Heiti SC', 'Heiti TC', 'HELV',
-        'Herald', 'High Tower Text', 'Hiragino Kaku Gothic ProN', 'Hiragino Mincho ProN', 'Hoefler Text', 'Humanst 521 Cn BT', 'Humanst521 BT', 'Humanst521 Lt BT', 'Imprint MT Shadow', 'Incised901 Bd BT', 'Incised901 BT',
-        'Incised901 Lt BT', 'INCONSOLATA', 'Informal Roman', 'Informal011 BT', 'INTERSTATE', 'IrisUPC', 'Iskoola Pota', 'JasmineUPC', 'Jazz LET', 'Jenson', 'Jester', 'Jokerman', 'Juice ITC', 'Kabel Bk BT', 'Kabel Ult BT', 'Kailasa', 'KaiTi', 'Kalinga', 'Kannada Sangam MN',
-        'Kartika', 'Kaufmann Bd BT', 'Kaufmann BT', 'Khmer UI', 'KodchiangUPC', 'Kokila', 'Korinna BT', 'Kristen ITC', 'Krungthep', 'Kunstler Script', 'Lao UI', 'Latha', 'Leelawadee', 'Letter Gothic', 'Levenim MT', 'LilyUPC', 'Lithograph', 'Lithograph Light', 'Long Island',
-        'Lydian BT', 'Magneto', 'Maiandra GD', 'Malayalam Sangam MN', 'Malgun Gothic',
-        'Mangal', 'Marigold', 'Marion', 'Marker Felt', 'Market', 'Marlett', 'Matisse ITC', 'Matura MT Script Capitals', 'Meiryo', 'Meiryo UI', 'Microsoft Himalaya', 'Microsoft JhengHei', 'Microsoft New Tai Lue', 'Microsoft PhagsPa', 'Microsoft Tai Le',
-        'Microsoft Uighur', 'Microsoft YaHei', 'Microsoft Yi Baiti', 'MingLiU', 'MingLiU_HKSCS', 'MingLiU_HKSCS-ExtB', 'MingLiU-ExtB', 'Minion', 'Minion Pro', 'Miriam', 'Miriam Fixed', 'Mistral', 'Modern', 'Modern No. 20', 'Mona Lisa Solid ITC TT', 'Mongolian Baiti',
-        'MONO', 'MoolBoran', 'Mrs Eaves', 'MS LineDraw', 'MS Mincho', 'MS PMincho', 'MS Reference Specialty', 'MS UI Gothic', 'MT Extra', 'MUSEO', 'MV Boli',
-        'Nadeem', 'Narkisim', 'NEVIS', 'News Gothic', 'News GothicMT', 'NewsGoth BT', 'Niagara Engraved', 'Niagara Solid', 'Noteworthy', 'NSimSun', 'Nyala', 'OCR A Extended', 'Old Century', 'Old English Text MT', 'Onyx', 'Onyx BT', 'OPTIMA', 'Oriya Sangam MN',
-        'OSAKA', 'OzHandicraft BT', 'Palace Script MT', 'Papyrus', 'Parchment', 'Party LET', 'Pegasus', 'Perpetua', 'Perpetua Titling MT', 'PetitaBold', 'Pickwick', 'Plantagenet Cherokee', 'Playbill', 'PMingLiU', 'PMingLiU-ExtB',
-        'Poor Richard', 'Poster', 'PosterBodoni BT', 'PRINCETOWN LET', 'Pristina', 'PTBarnum BT', 'Pythagoras', 'Raavi', 'Rage Italic', 'Ravie', 'Ribbon131 Bd BT', 'Rockwell', 'Rockwell Condensed', 'Rockwell Extra Bold', 'Rod', 'Roman', 'Sakkal Majalla',
-        'Santa Fe LET', 'Savoye LET', 'Sceptre', 'Script', 'Script MT Bold', 'SCRIPTINA', 'Serifa', 'Serifa BT', 'Serifa Th BT', 'ShelleyVolante BT', 'Sherwood',
-        'Shonar Bangla', 'Showcard Gothic', 'Shruti', 'Signboard', 'SILKSCREEN', 'SimHei', 'Simplified Arabic', 'Simplified Arabic Fixed', 'SimSun', 'SimSun-ExtB', 'Sinhala Sangam MN', 'Sketch Rockwell', 'Skia', 'Small Fonts', 'Snap ITC', 'Snell Roundhand', 'Socket',
-        'Souvenir Lt BT', 'Staccato222 BT', 'Steamer', 'Stencil', 'Storybook', 'Styllo', 'Subway', 'Swis721 BlkEx BT', 'Swiss911 XCm BT', 'Sylfaen', 'Synchro LET', 'System', 'Tamil Sangam MN', 'Technical', 'Teletype', 'Telugu Sangam MN', 'Tempus Sans ITC',
-        'Terminal', 'Thonburi', 'Traditional Arabic', 'Trajan', 'TRAJAN PRO', 'Tristan', 'Tubular', 'Tunga', 'Tw Cen MT', 'Tw Cen MT Condensed', 'Tw Cen MT Condensed Extra Bold',
-        'TypoUpright BT', 'Unicorn', 'Univers', 'Univers CE 55 Medium', 'Univers Condensed', 'Utsaah', 'Vagabond', 'Vani', 'Vijaya', 'Viner Hand ITC', 'VisualUI', 'Vivaldi', 'Vladimir Script', 'Vrinda', 'Westminster', 'WHITNEY', 'Wide Latin',
-        'ZapfEllipt BT', 'ZapfHumnst BT', 'ZapfHumnst Dm BT', 'Zapfino', 'Zurich BlkEx BT', 'Zurich Ex BT', 'ZWAdobeF']
-      fontList = fontList.concat(extendedFontList)
-    }
-
-    fontList = fontList.concat(options.fonts.userDefinedFonts)
 
     // remove duplicate fonts
     fontList = fontList.filter(function (font, position) {
@@ -857,17 +757,6 @@
   var getNavigatorPlatform = function (options) {
     if (navigator.platform) {
       return navigator.platform
-    } else {
-      return options.NOT_AVAILABLE
-    }
-  }
-  var getDoNotTrack = function (options) {
-    if (navigator.doNotTrack) {
-      return navigator.doNotTrack
-    } else if (navigator.msDoNotTrack) {
-      return navigator.msDoNotTrack
-    } else if (window.doNotTrack) {
-      return window.doNotTrack
     } else {
       return options.NOT_AVAILABLE
     }
@@ -1273,28 +1162,6 @@
     }
     return false
   }
-  var hasSwfObjectLoaded = function () {
-    return typeof window.swfobject !== 'undefined'
-  }
-  var hasMinFlashInstalled = function () {
-    return window.swfobject.hasFlashPlayerVersion('9.0.0')
-  }
-  var addFlashDivNode = function (options) {
-    var node = document.createElement('div')
-    node.setAttribute('id', options.fonts.swfContainerId)
-    document.body.appendChild(node)
-  }
-  var loadSwfAndDetectFonts = function (done, options) {
-    var hiddenCallback = '___fp_swf_loaded'
-    window[hiddenCallback] = function (fonts) {
-      done(fonts)
-    }
-    var id = options.fonts.swfContainerId
-    addFlashDivNode()
-    var flashvars = { onReady: hiddenCallback }
-    var flashparams = { allowScriptAccess: 'always', menu: 'false' }
-    window.swfobject.embedSWF(options.fonts.swfPath, id, '1', '1', '9.0.0', false, flashvars, flashparams, {})
-  }
   var getWebglCanvas = function () {
     var canvas = document.createElement('canvas')
     var gl = null
@@ -1330,7 +1197,6 @@
     { key: 'openDatabase', getData: openDatabaseKey },
     { key: 'cpuClass', getData: cpuClassKey },
     { key: 'platform', getData: platformKey },
-    { key: 'doNotTrack', getData: doNotTrackKey },
     { key: 'plugins', getData: pluginsComponent },
     { key: 'canvas', getData: canvasKey },
     { key: 'webgl', getData: webglKey },
@@ -1342,14 +1208,10 @@
     { key: 'hasLiedBrowser', getData: hasLiedBrowserKey },
     { key: 'touchSupport', getData: touchSupportKey },
     { key: 'fonts', getData: jsFontsKey, pauseBefore: true },
-    { key: 'fontsFlash', getData: flashFontsKey, pauseBefore: true },
-    { key: 'audio', getData: audioKey },
-    { key: 'enumerateDevices', getData: enumerateDevicesKey }
+    { key: 'audio', getData: audioKey }
   ]
 
-  var Fingerprint2 = function (options) {
-    throw new Error("'new Fingerprint()' is deprecated, see https://github.com/Valve/fingerprintjs2#upgrade-guide-from-182-to-200")
-  }
+  var Fingerprint2 = {};
 
   Fingerprint2.get = function (options, callback) {
     if (!callback) {
@@ -1359,14 +1221,10 @@
       options = {}
     }
     extendSoft(options, defaultOptions)
-    options.components = options.extraComponents.concat(components)
 
     var keys = {
       data: [],
       addPreprocessedComponent: function (key, value) {
-        if (typeof options.preprocessor === 'function') {
-          value = options.preprocessor(key, value)
-        }
         keys.data.push({ key: key, value: value })
       }
     }
@@ -1408,59 +1266,6 @@
     chainComponents(false)
   }
 
-  Fingerprint2.getPromise = function (options) {
-    return new Promise(function (resolve, reject) {
-      Fingerprint2.get(options, resolve)
-    })
-  }
-
-  Fingerprint2.getV18 = function (options, callback) {
-    if (callback == null) {
-      callback = options
-      options = {}
-    }
-    return Fingerprint2.get(options, function (components) {
-      var newComponents = []
-      for (var i = 0; i < components.length; i++) {
-        var component = components[i]
-        if (component.value === (options.NOT_AVAILABLE || 'not available')) {
-          newComponents.push({ key: component.key, value: 'unknown' })
-        } else if (component.key === 'plugins') {
-          newComponents.push({
-            key: 'plugins',
-            value: map(component.value, function (p) {
-              var mimeTypes = map(p[2], function (mt) {
-                if (mt.join) { return mt.join('~') }
-                return mt
-              }).join(',')
-              return [p[0], p[1], mimeTypes].join('::')
-            })
-          })
-        } else if (['canvas', 'webgl'].indexOf(component.key) !== -1 && Array.isArray(component.value)) {
-          // sometimes WebGL returns error in headless browsers (during CI testing for example)
-          // so we need to join only if the values are array
-          newComponents.push({ key: component.key, value: component.value.join('~') })
-        } else if (['sessionStorage', 'localStorage', 'indexedDb', 'addBehavior', 'openDatabase'].indexOf(component.key) !== -1) {
-          if (component.value) {
-            newComponents.push({ key: component.key, value: 1 })
-          } else {
-            // skip
-            continue
-          }
-        } else {
-          if (component.value) {
-            newComponents.push(component.value.join ? { key: component.key, value: component.value.join(';') } : component)
-          } else {
-            newComponents.push({ key: component.key, value: component.value })
-          }
-        }
-      }
-      var murmur = x64hash128(map(newComponents, function (component) { return component.value }).join('~~~'), 31)
-      callback(murmur, newComponents)
-    })
-  }
-
   Fingerprint2.x64hash128 = x64hash128
-  Fingerprint2.VERSION = '2.1.0'
   return Fingerprint2
-})
+})()
