@@ -230,7 +230,7 @@ window.fipr = (function() {
     return ('00000000' + (h1[0] >>> 0).toString(16)).slice(-8) + ('00000000' + (h1[1] >>> 0).toString(16)).slice(-8) + ('00000000' + (h2[0] >>> 0).toString(16)).slice(-8) + ('00000000' + (h2[1] >>> 0).toString(16)).slice(-8)
   }
 
-  var defaultOptions = {
+  var options = {
     audio: {
       timeout: 1000,
       // On iOS 11, audio context can only be used in response to user interaction.
@@ -283,19 +283,6 @@ window.fipr = (function() {
       results.push(iterator(value, index, list))
     })
     return results
-  }
-
-  var extendSoft = function (target, source) {
-    if (source == null) { return target }
-    var value
-    var key
-    for (key in source) {
-      value = source[key]
-      if (value != null && !(Object.prototype.hasOwnProperty.call(target, key))) {
-        target[key] = value
-      }
-    }
-    return target
   }
 
   // Inspired by and based on https://github.com/cozylife/audio-fingerprint
@@ -1213,14 +1200,7 @@ window.fipr = (function() {
 
   var Fingerprint2 = {};
 
-  Fingerprint2.get = function (options, callback) {
-    if (!callback) {
-      callback = options
-      options = {}
-    } else if (!options) {
-      options = {}
-    }
-    extendSoft(options, defaultOptions)
+  Fingerprint2.get = function (callback) {
 
     var keys = {
       data: [],
@@ -1232,11 +1212,11 @@ window.fipr = (function() {
     var i = -1
     var chainComponents = function (alreadyWaited) {
       i += 1
-      if (i >= options.components.length) { // on finish
+      if (i >= components.length) { // on finish
         callback(keys.data)
         return
       }
-      var component = options.components[i]
+      var component = components[i]
 
       if (options.excludes[component.key]) {
         chainComponents(false) // skip
